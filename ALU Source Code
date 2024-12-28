@@ -1,0 +1,165 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 08.09.2024 18:23:30
+// Design Name: 
+// Module Name: ALU_FPGA
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+module alu(clk,eq,val1,val2,sel,out);
+input clk,eq;
+input [3:0]sel;
+input [3:0]val1,val2;
+output reg [7:0]out;
+reg [3:0]temp;
+always@(posedge clk)
+begin
+if(eq)
+begin
+case(sel)
+0:out=val1+val2;
+1:out=val1-val2;
+2:out=val1*val2;
+3:out=val1/val2;
+4:out=val1+1;
+5:out=val1-1;
+6:out=val1&&val2;
+7:out=val1||val2;
+8:out=val1&val2;
+9:out=val1|val2;
+10:out=val1^val2;
+11:begin
+temp=~val1;
+out=temp;
+end
+12:out=val1<<1;
+13:out=val1>>1;
+14:out=val1==val2;
+15:out=val1%val2;
+default:out=0;
+endcase
+end
+else
+out=0;
+end
+endmodule
+
+//module test;
+//reg [3:0]sel=0,a,b;
+//wire [7:0]out;
+//reg eq=0,clk=0;
+//integer i,j;
+//alu tb(clk,eq,a,b,sel,out);
+//initial
+//begin
+//eq=1;
+//repeat(16)
+//begin
+//for(i=0;i<=15;i=i+1)
+//begin
+//for(j=0;j<=15;j=j+1)
+//begin
+//a=i; b=j; #5;
+//end
+//end
+//sel=sel+1;
+//end
+//$stop;
+//end
+
+//always #2.5 clk=~clk;
+//endmodule
+
+module clock_divider(clk,nclk,sclk);
+input clk;
+output nclk,sclk;
+reg [31:0]count=0;
+always@(posedge clk)
+begin
+count=count+1;
+end
+assign nclk=count[25];
+assign sclk=count[16];
+endmodule
+
+module count_anode(clk,count,anode);
+input clk;
+output reg [2:0]count=0;
+output reg [7:0]anode=8'b11111111;
+wire nclk,sclk;
+clock_divider(clk,nclk,sclk);
+always@(posedge sclk)
+begin
+if(count==7)
+count=0;
+else
+count=count+1;
+
+case(count)
+0:anode=8'b11111110;
+1:anode=8'b11111101;
+2:anode=8'b11111011;
+3:anode=8'b11110111;
+4:anode=8'b11101111;
+5:anode=8'b11011111;
+6:anode=8'b10111111;
+7:anode=8'b01111111;
+default:anode=8'b11111111;
+
+endcase
+end
+endmodule
+
+module segments(clk,eq,in1,in2,sel,seg,anode);
+input clk,eq;
+input [3:0]in1,in2,sel;
+output [7:0]anode;
+output reg [6:0]seg=7'b1111111;
+wire [2:0]count;
+wire [7:0]out;
+
+reg [3:0]bcd;
+wire nclkl,sclk;
+clock_divider cl1(clk,nclk,sclk);
+count_anode an1(clk,count,anode);
+alu al1(nclk,eq,in1,in2,sel,out);
+always@(posedge sclk)
+begin
+case(count)
+0:bcd=out[0];
+1:bcd=out[1];
+2:bcd=out[2];
+3:bcd=out[3];
+4:bcd=out[4];
+5:bcd=out[5];
+6:bcd=out[6];
+7:bcd=out[7];
+default:bcd=0;
+endcase
+case(bcd)
+0:seg=7'b1000000;
+1:seg=7'b1111001;
+default:seg=7'b1111111;
+endcase
+end
+endmodule
+module display(clk,sw,an,seg);
+input [12:0]sw;
+input clk;
+output [7:0]an;
+output [6:0]seg;
+segments t1(clk,sw[12],sw[11:8],sw[7:4],sw[3:0],seg,an);
+endmodule
